@@ -73,16 +73,30 @@ export CXXFLAGS="$CFLAGS"
 
 # Build native library locally (no install into /usr/local)
 cd "$RPI_WS_REPO"
-if [ $USE_SCONS -eq 1 ]; then
-  echo "Building with scons (local build)"
+
+# Try to locate a build driver (SConstruct or Makefile) anywhere under the repo
+echo "Searching for SConstruct/Makefile under $RPI_WS_REPO (depth 3)"
+BUILD_DRIVER_PATH=$(find "$RPI_WS_REPO" -maxdepth 3 \( -name SConstruct -o -name Makefile \) -print | head -n 1 || true)
+if [ -z "$BUILD_DRIVER_PATH" ]; then
+  echo "No SConstruct or Makefile found in $RPI_WS_REPO (searched depth 3)."
+  echo "Listing top-level files:"; ls -la "$RPI_WS_REPO"
+  echo "You can inspect the rpi_ws281x repo layout. If build files are deeper, re-run this script or adjust the depth."
+  exit 1
+fi
+
+BUILD_DIR=$(dirname "$BUILD_DRIVER_PATH")
+echo "Found build driver at: $BUILD_DRIVER_PATH (building in $BUILD_DIR)"
+cd "$BUILD_DIR"
+
+# Decide whether to use scons or make based on the found file and availability
+if [ -f "SConstruct" ] && command -v scons >/dev/null 2>&1; then
+  echo "Using scons to build in $BUILD_DIR"
   scons || { echo "scons build failed"; exit 1; }
+elif [ -f "Makefile" ]; then
+  echo "Using make to build in $BUILD_DIR"
+  make || { echo "make build failed"; exit 1; }
 else
-  if [ -f Makefile ]; then
-    echo "Building with make (local build)"
-    make || { echo "make build failed"; exit 1; }
-  else
-    echo "No SConstruct or Makefile found in $RPI_WS_REPO. Cannot build."; exit 1
-  fi
+  echo "Found build file but no supported builder available in PATH (scons/make)."; exit 1
 fi
 
 # At this point native library artifacts are built under the repo (commonly in build/) and headers are available
