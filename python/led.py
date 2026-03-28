@@ -101,15 +101,32 @@ def _update_pi():
     rgb = np.bitwise_or(np.bitwise_or(r, g), b)
     # Update the pixels using the public API (setPixelColor/Color)
     # Avoid accessing internal attributes like _led_data which may not exist
-    for i in range(config.N_PIXELS):
-        # Ignore pixels if they haven't changed (saves bandwidth)
-        if np.array_equal(p[:, i], _prev_pixels[:, i]):
-            continue
-        # Use Color(r, g, b) to construct the 24-bit color value expected by the library
+    # Compute indices of pixels that changed to avoid looping over all pixels
+    changed_mask = ~np.all(p == _prev_pixels, axis=0)
+    changed_idx = np.nonzero(changed_mask)[0]
+
+    if len(changed_idx) == 0:
+        # Nothing changed
+        return
+
+    # Fast path: if the rpi_ws281x binding exposes an internal buffer we can write
+    # directly (older/newer bindings differ). Use it when available for best throughput.
+    if hasattr(strip, '_led_data'):
+        try:
+            for i in changed_idx:
+                strip._led_data[i] = int(rgb[i])
+            _prev_pixels = np.copy(p)
+            strip.show()
+            return
+        except Exception:
+            # Fall through to the safe public-API path
+            pass
+
+    # Fallback: set pixels using the public API (slower but compatible)
+    for i in changed_idx:
         try:
             strip.setPixelColor(i, Color(int(p[0][i]), int(p[1][i]), int(p[2][i])))
         except NameError:
-            # Fallback if Color isn't available: pass the precomputed integer value
             strip.setPixelColor(i, int(rgb[i]))
     _prev_pixels = np.copy(p)
     strip.show()
