@@ -36,7 +36,7 @@ exec > >(tee -a "$LOG") 2>&1
 echo "rpi_ws281x sudo-enabled installer"
 echo "Log: $LOG"
 
-def die() { echo "ERROR: $*" >&2; exit 1; }
+die() { echo "ERROR: $*" >&2; exit 1; }
 
 # Basic checks
 if [ ! -x "$VENV_PY" ]; then
