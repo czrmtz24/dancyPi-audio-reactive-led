@@ -99,13 +99,18 @@ def _update_pi():
     g = np.left_shift(p[1][:].astype(int), 16)
     b = p[2][:].astype(int)
     rgb = np.bitwise_or(np.bitwise_or(r, g), b)
-    # Update the pixels
+    # Update the pixels using the public API (setPixelColor/Color)
+    # Avoid accessing internal attributes like _led_data which may not exist
     for i in range(config.N_PIXELS):
         # Ignore pixels if they haven't changed (saves bandwidth)
         if np.array_equal(p[:, i], _prev_pixels[:, i]):
             continue
-            
-        strip._led_data[i] = int(rgb[i])
+        # Use Color(r, g, b) to construct the 24-bit color value expected by the library
+        try:
+            strip.setPixelColor(i, Color(int(p[0][i]), int(p[1][i]), int(p[2][i])))
+        except NameError:
+            # Fallback if Color isn't available: pass the precomputed integer value
+            strip.setPixelColor(i, int(rgb[i]))
     _prev_pixels = np.copy(p)
     strip.show()
 
