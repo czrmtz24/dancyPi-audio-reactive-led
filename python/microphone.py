@@ -31,8 +31,12 @@ def start_stream(callback):
     prev_ovf_time = time.time()
     while True:
         try:
-            y = np.fromstring(stream.read(frames_per_buffer, exception_on_overflow=False), dtype=np.int16)
-            y = y.astype(np.float32)
+            # stream.read returns a bytes object. np.fromstring(binary, dtype) used to
+            # interpret the bytes as an array but that binary mode was removed in
+            # recent numpy versions. Use frombuffer instead which accepts a buffer
+            # and does not copy by default.
+            data = stream.read(frames_per_buffer, exception_on_overflow=False)
+            y = np.frombuffer(data, dtype=np.int16).astype(np.float32)
             stream.read(stream.get_read_available(), exception_on_overflow=False)
             callback(y)
         except IOError:
