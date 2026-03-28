@@ -1,7 +1,22 @@
 import time
 import numpy as np
-import pyaudio
 import config
+
+try:
+    import pyaudio
+except Exception as exc:
+    # Friendly error message if PyAudio isn't installed or fails to import
+    msg = (
+        "PyAudio is not installed or failed to import.\n"
+        "This module is required to capture audio from the microphone.\n"
+        "On Debian/Raspberry Pi, install system deps then install PyAudio in your venv:\n"
+        "  sudo apt update && sudo apt install -y portaudio19-dev libasound2-dev python3-dev build-essential\n"
+        "  python3 -m pip install --upgrade pip setuptools wheel\n"
+        "  python3 -m pip install pyaudio\n"
+        "Or install the Debian package: sudo apt install python3-pyaudio\n"
+    )
+    print(msg)
+    raise
 
 
 def start_stream(callback):
