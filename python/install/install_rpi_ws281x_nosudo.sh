@@ -119,7 +119,24 @@ export CPATH="$RPI_WS_REPO:${CPATH:-}"
 export C_INCLUDE_PATH="$RPI_WS_REPO:${C_INCLUDE_PATH:-}"
 
 # Install python bindings into venv using pip (editable install avoids touching system)
-cd "$RPI_WS_REPO/python"
+# Locate the python bindings directory (where setup.py lives). Repo layouts vary.
+echo "Locating python bindings (setup.py) under $RPI_WS_REPO"
+PY_SETUP_PATH=$(find "$RPI_WS_REPO" -maxdepth 4 -type f -name setup.py -print | head -n 1 || true)
+if [ -n "$PY_SETUP_PATH" ]; then
+  PY_DIR=$(dirname "$PY_SETUP_PATH")
+  echo "Found python setup at: $PY_SETUP_PATH (using $PY_DIR)"
+else
+  # Fallback to conventional location
+  if [ -d "$RPI_WS_REPO/python" ]; then
+    PY_DIR="$RPI_WS_REPO/python"
+    echo "Using conventional python dir: $PY_DIR"
+  else
+    echo "ERROR: Could not find setup.py or python/ directory in rpi_ws281x repo."
+    echo "Repo contents:"; ls -la "$RPI_WS_REPO"
+    exit 1
+  fi
+fi
+cd "$PY_DIR"
 # Ensure pip/setuptools are recent inside venv
 "$VENV_PY" -m pip install --upgrade pip setuptools wheel
 
