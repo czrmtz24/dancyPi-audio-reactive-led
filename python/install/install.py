@@ -6,7 +6,6 @@
 # Website: https://www.easyprogramming.net
 
 import os
-from shutil import copy2
 import sys
 import subprocess
 from datetime import datetime
@@ -107,7 +106,7 @@ def install_dependencies():
         "libffi-dev",
         "git",
     ]
-    apt_cmd = "sudo apt install -y " + " ".join(apt_pkgs)
+    apt_cmd = "DEBIAN_FRONTEND=noninteractive sudo apt install -y " + " ".join(apt_pkgs)
     cp = run_cmd(apt_cmd)
     write_log(f"STEP_COMPLETE: apt install system packages (rc={cp.returncode})")
 
@@ -283,18 +282,35 @@ def ensure_user_can_sudo():
 
 def replace_asound():
     log_print("================== Copying asound.conf ==================")
-    copy2('asound.conf', '/etc/asound.conf')
-    log_print("================== Completed copying to /etc/asound.conf ==================")
+    src = os.path.join(SCRIPT_DIR, 'asound.conf')
+    if not os.path.exists(src):
+        log_print(f"Source asound.conf not found at {src}; skipping copy.")
+        write_log(f"ERROR: asound.conf not found at {src}")
+        return
+    cp = run_cmd(f"sudo cp {sh_quote(src)} /etc/asound.conf")
+    write_log(f"STEP_COMPLETE: copy asound.conf (rc={cp.returncode})")
+    if cp.returncode != 0:
+        log_print("Failed to copy asound.conf to /etc; check install.log for details.")
+    else:
+        log_print("================== Completed copying to /etc/asound.conf ==================")
 
 
 def edit_alsa_conf():
     log_print("================== Creating backup of alsa.conf ==================")
-    copy2('/usr/share/alsa/alsa.conf', '/usr/share/alsa/alsa.conf.bak')
-    log_print("================== Completed backup of alsa.conf -> alsa.conf.bak ==================")
+    cp = run_cmd("sudo cp /usr/share/alsa/alsa.conf /usr/share/alsa/alsa.conf.bak")
+    write_log(f"STEP_COMPLETE: backup alsa.conf (rc={cp.returncode})")
+    if cp.returncode != 0:
+        log_print("Failed to backup /usr/share/alsa/alsa.conf; aborting edit.")
+        return
 
     log_print("================== Replacing text in alsa.conf ==================")
-    with open('/usr/share/alsa/alsa.conf', 'r') as file:
-        filedata = file.read()
+    try:
+        with open('/usr/share/alsa/alsa.conf', 'r') as file:
+            filedata = file.read()
+    except Exception as exc:
+        write_log(f"ERROR reading /usr/share/alsa/alsa.conf: {exc}")
+        log_print("Failed to read /usr/share/alsa/alsa.conf; aborting edit.")
+        return
         filedata = filedata.replace("defaults.ctl.card 0", "defaults.ctl.card 1")
         filedata = filedata.replace("defaults.pcm.card 0", "defaults.pcm.card 1")
         filedata = filedata.replace("pcm.front cards.pcm.front", "# pcm.front cards.pcm.front")
@@ -312,10 +328,27 @@ def edit_alsa_conf():
         filedata = filedata.replace("pcm.hdmi cards.pcm.hdmi", "# pcm.hdmi cards.pcm.hdmi")
         filedata = filedata.replace("pcm.modem cards.pcm.modem", "# pcm.modem cards.pcm.modem")
         filedata = filedata.replace("pcm.phoneline cards.pcm.phoneline", "# pcm.phoneline cards.pcm.phoneline")
-    with open('/usr/share/alsa/alsa.conf', 'w') as file:
-        file.write(filedata)
+    # Write the modified file to a temp location then move it into place with sudo
+    tmp_path = os.path.join(REPO_ROOT, 'alsa.conf.tmp')
+    try:
+        with open(tmp_path, 'w', encoding='utf-8') as file:
+            file.write(filedata)
+    except Exception as exc:
+        write_log(f"ERROR writing temp alsa.conf: {exc}")
+        log_print("Failed to write temporary alsa.conf; aborting edit.")
+        return
 
-    log_print("================== Completed replacing text in alsa.conf ==================")
+    cp = run_cmd(f"sudo cp {sh_quote(tmp_path)} /usr/share/alsa/alsa.conf")
+    write_log(f"STEP_COMPLETE: write new alsa.conf (rc={cp.returncode})")
+    try:
+        os.remove(tmp_path)
+    except Exception:
+        pass
+
+    if cp.returncode != 0:
+        log_print("Failed to replace /usr/share/alsa/alsa.conf; check install.log for details.")
+    else:
+        log_print("================== Completed replacing text in alsa.conf ==================")
 
 
 if __name__ == '__main__':
