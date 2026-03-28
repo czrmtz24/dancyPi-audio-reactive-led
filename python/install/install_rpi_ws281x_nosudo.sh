@@ -113,10 +113,10 @@ if [ ! -d "$BUILD_DIR" ]; then
 fi
 
 # Export library/header search paths to help extension build
-export LIBRARY_PATH="$BUILD_DIR:$LIBRARY_PATH"
-export LD_LIBRARY_PATH="$BUILD_DIR:$LD_LIBRARY_PATH"
-export CPATH="$RPI_WS_REPO:$CPATH"
-export C_INCLUDE_PATH="$RPI_WS_REPO:$C_INCLUDE_PATH"
+export LIBRARY_PATH="$BUILD_DIR:${LIBRARY_PATH:-}"
+export LD_LIBRARY_PATH="$BUILD_DIR:${LD_LIBRARY_PATH:-}"
+export CPATH="$RPI_WS_REPO:${CPATH:-}"
+export C_INCLUDE_PATH="$RPI_WS_REPO:${C_INCLUDE_PATH:-}"
 
 # Install python bindings into venv using pip (editable install avoids touching system)
 cd "$RPI_WS_REPO/python"
