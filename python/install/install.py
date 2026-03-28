@@ -9,6 +9,7 @@ import os
 import sys
 import subprocess
 from datetime import datetime
+import getpass
 
 import platform
 # Paths
@@ -97,6 +98,8 @@ def install_dependencies():
         "python3-numpy",
         "python3-scipy",
         "python3-pyqt5",
+        "python3-pyaudio",
+        "python3-pyqtgraph",
         "libatlas-base-dev",
         "libatlas3-base",
         "libgfortran5",
@@ -351,9 +354,52 @@ def edit_alsa_conf():
         log_print("================== Completed replacing text in alsa.conf ==================")
 
 
+def add_user_to_groups():
+    """Add the current user to gpio,video,audio,plugdev using sudo.
+
+    This attempts to run: sudo usermod -aG gpio,video,audio,plugdev <user>
+    If successful, the user is informed they must log out/reboot for changes to take
+    effect and is offered an immediate reboot prompt.
+    """
+    log_print("================== Adding current user to gpio,video,audio,plugdev groups ==================")
+    try:
+        user = os.environ.get('USER') or os.environ.get('LOGNAME') or getpass.getuser()
+    except Exception:
+        user = ''
+
+    if not user:
+        log_print("Could not determine current username; please run the following command manually:")
+        log_print("  sudo usermod -aG gpio,video,audio,plugdev <your-username>")
+        write_log("INFO: could not determine username for usermod step")
+        return
+
+    # Run the usermod command to add the user to the required groups
+    cmd = f"sudo usermod -aG gpio,video,audio,plugdev {sh_quote(user)}"
+    cp = run_cmd(cmd)
+    write_log(f"STEP_COMPLETE: usermod add groups (rc={cp.returncode})")
+    if getattr(cp, 'returncode', 1) != 0:
+        log_print("Failed to add user to groups automatically. Please run the following command manually:")
+        log_print(f"  sudo usermod -aG gpio,video,audio,plugdev {user}")
+        return
+
+    log_print("User added to groups successfully.")
+    log_print("You need to log out and back in for group membership to take effect, or you can reboot now.")
+    try:
+        ans = input("Reboot now? [y/N]: ").strip().lower()
+    except Exception:
+        ans = 'n'
+
+    if ans in ('y', 'yes'):
+        log_print("Rebooting now...")
+        run_cmd("sudo reboot")
+    else:
+        log_print("Skipping reboot. Please log out and back in for group changes to take effect.")
+
+
 if __name__ == '__main__':
     ensure_not_running_as_root()
     ensure_user_can_sudo()
     install_dependencies()
     replace_asound()
     edit_alsa_conf()
+    add_user_to_groups()
