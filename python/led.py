@@ -114,7 +114,8 @@ def _update_pi():
     if hasattr(strip, '_led_data'):
         try:
             for i in changed_idx:
-                strip._led_data[i] = int(rgb[i])
+                idx = int(i)
+                strip._led_data[idx] = int(rgb[i])
             _prev_pixels = np.copy(p)
             strip.show()
             return
@@ -124,10 +125,11 @@ def _update_pi():
 
     # Fallback: set pixels using the public API (slower but compatible)
     for i in changed_idx:
+        idx = int(i)
         try:
-            strip.setPixelColor(i, Color(int(p[0][i]), int(p[1][i]), int(p[2][i])))
+            strip.setPixelColor(idx, Color(int(p[0][i]), int(p[1][i]), int(p[2][i])))
         except NameError:
-            strip.setPixelColor(i, int(rgb[i]))
+            strip.setPixelColor(idx, int(rgb[i]))
     _prev_pixels = np.copy(p)
     strip.show()
 
