@@ -1,7 +1,22 @@
 import time
 import numpy as np
-import pyaudio
 import config
+
+try:
+    import pyaudio
+except Exception as exc:
+    # Friendly error message if PyAudio isn't installed or fails to import
+    msg = (
+        "PyAudio is not installed or failed to import.\n"
+        "This module is required to capture audio from the microphone.\n"
+        "On Debian/Raspberry Pi, install system deps then install PyAudio in your venv:\n"
+        "  sudo apt update && sudo apt install -y portaudio19-dev libasound2-dev python3-dev build-essential\n"
+        "  python3 -m pip install --upgrade pip setuptools wheel\n"
+        "  python3 -m pip install pyaudio\n"
+        "Or install the Debian package: sudo apt install python3-pyaudio\n"
+    )
+    print(msg)
+    raise
 
 
 def start_stream(callback):
@@ -16,8 +31,12 @@ def start_stream(callback):
     prev_ovf_time = time.time()
     while True:
         try:
-            y = np.fromstring(stream.read(frames_per_buffer, exception_on_overflow=False), dtype=np.int16)
-            y = y.astype(np.float32)
+            # stream.read returns a bytes object. np.fromstring(binary, dtype) used to
+            # interpret the bytes as an array but that binary mode was removed in
+            # recent numpy versions. Use frombuffer instead which accepts a buffer
+            # and does not copy by default.
+            data = stream.read(frames_per_buffer, exception_on_overflow=False)
+            y = np.frombuffer(data, dtype=np.int16).astype(np.float32)
             stream.read(stream.get_read_available(), exception_on_overflow=False)
             callback(y)
         except IOError:
